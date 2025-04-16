@@ -24,7 +24,7 @@ passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 bcrypt = "^4.2.0"
 python-jose = "^3.3.0"
 aioimaplib = "^1.1.0"
-cryptography = "^43.0.3"
+cryptography = "^44.0.1"
 python-multipart = "^0.0.20"
 email-validator = "^2.2.0"
 itsdangerous = "^2.2.0"
