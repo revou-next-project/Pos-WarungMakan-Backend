@@ -1,19 +1,19 @@
 from fastapi import FastAPI
 from fastapi_sqlalchemy import DBSessionMiddleware, db
-from src.config import dev
+from config import dev
 from fastapi.middleware.cors import CORSMiddleware
 from routes import app as api_app
-from src.databases.seed import seed_database
+from databases.seed import seed_database
+
+# Define the lifespan function without the unused app argument
+async def lifespan():
+    # Seed the database when the app starts
+    seed_database()
+    yield  # Yield at the end of the lifespan function to signal completion
+
 def create_app():
     config = dev.DevConfig()
-    app = FastAPI(title=config.APP_NAME)
-    # print(os.path.dirname(os.path.abspath(__file__)))
-
-    @app.on_event("startup")
-    async def startup():
-        # Seed the database with initial data
-        seed_database()
-
+    app = FastAPI(title=config.APP_NAME, lifespan=lifespan)  # Pass lifespan function directly
 
     # Add DBSessionMiddleware for managing database sessions
     app.add_middleware(DBSessionMiddleware, db_url=config.DATABASE_URL)
@@ -32,4 +32,5 @@ def create_app():
 
     return app
 
+# Create the FastAPI app
 app = create_app()

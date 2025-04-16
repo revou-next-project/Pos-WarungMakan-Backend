@@ -8,3 +8,6 @@ DATABASE_URL = "mysql+pymysql://root:root@localhost:3306/pos_warung_makan"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+def create_db():
+    Base.metadata.create_all(bind=engine)
