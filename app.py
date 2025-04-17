@@ -6,7 +6,7 @@ from routes import app as api_app
 from databases.seed import seed_database
 
 # Define the lifespan function without the unused app argument
-async def lifespan():
+async def lifespan(app: FastAPI):
     # Seed the database when the app starts
     seed_database()
     yield  # Yield at the end of the lifespan function to signal completion

@@ -1,13 +1,9 @@
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-# from src.controllers import (
-#     hello_controller,
-#     user_controller,
-#     product_controller,
-#     product_review_controller,
-#     review_reply_controller
-
-# )
+from controllers import (
+    product_controller,
+    inventory_controller
+)
 
 app = FastAPI()
 
@@ -47,8 +43,5 @@ def custom_openapi():
     return app.openapi_schema
 
 # Include all routers
-# app.include_router(hello_controller.router)
-# app.include_router(user_controller.router)
-# app.include_router(product_controller.router)
-# app.include_router(product_review_controller.router)
-# app.include_router(review_reply_controller.router)
+app.include_router(product_controller.router)
+app.include_router(inventory_controller.router)

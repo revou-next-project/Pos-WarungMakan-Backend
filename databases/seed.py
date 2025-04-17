@@ -1,7 +1,7 @@
 # seed.py
 from sqlalchemy.orm import Session
 from models import Product, InventoryItem
-from database import SessionLocal
+from .database import SessionLocal
 
 def seed_database():
     db = SessionLocal()

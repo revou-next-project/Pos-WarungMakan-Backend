@@ -29,6 +29,7 @@ class Product(Base):
             'category': self.category,
             'unit': self.unit,
             'image': self.image,
+            'is_package': self.is_package,
             'created_at': self.created_at.isoformat() if self.created_at else None, 
             'updated_at': self.updated_at.isoformat() if self.updated_at else None  
         }
