@@ -1,25 +1,25 @@
 from fastapi import FastAPI
-from fastapi_sqlalchemy import DBSessionMiddleware, db
-from config import dev
+from fastapi_sqlalchemy import DBSessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
-from routes import app as api_app
+from config import dev
+from routes import router as api_router
 from databases.seed import seed_database
+from fastapi.openapi.utils import get_openapi
 
-# Define the lifespan function without the unused app argument
+# Lifespan for seeding the DB
 async def lifespan(app: FastAPI):
-    # Seed the database when the app starts
     seed_database()
-    yield  # Yield at the end of the lifespan function to signal completion
+    yield
 
 def create_app():
     config = dev.DevConfig()
-    app = FastAPI(title=config.APP_NAME, lifespan=lifespan)  # Pass lifespan function directly
+    app = FastAPI(title=config.APP_NAME, lifespan=lifespan)
 
-    # Add DBSessionMiddleware for managing database sessions
+    # Add DBSessionMiddleware
     app.add_middleware(DBSessionMiddleware, db_url=config.DATABASE_URL)
 
-    # Include your routers
-    app.include_router(api_app.router)
+    # Register your routers
+    app.include_router(api_router)
 
     # Add CORS middleware
     app.add_middleware(
@@ -30,7 +30,36 @@ def create_app():
         allow_headers=["*"],
     )
 
+    # 🔐 JWT Swagger UI config
+    def custom_openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        openapi_schema = get_openapi(
+            title="Pos Warung Makan API",
+            version="0.1.0",
+            description="An API for Pos Warung Makan Project",
+            routes=app.routes,
+        )
+
+        openapi_schema["components"]["securitySchemes"] = {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+
+        for path in openapi_schema["paths"].values():
+            for method in path.values():
+                method.setdefault("security", [{"BearerAuth": []}])
+
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi
+
     return app
 
-# Create the FastAPI app
+# Final app instance to run
 app = create_app()

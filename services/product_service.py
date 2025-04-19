@@ -1,6 +1,6 @@
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
-from app import db
+from fastapi_sqlalchemy import db
 from models.product_model import Product
 from schemas.product_schema import (
     ProductSchema,

@@ -24,8 +24,10 @@ class RecipeItem(Base):
         return {
             "id": self.id,
             "product_id": self.product_id,
+            "product_name": self.product.name if self.product else None,
             "inventory_item_id": self.inventory_item_id,
+            "inventory_name": self.inventory_item.name if self.inventory_item else None,
             "quantity_needed": self.quantity_needed,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-        }   
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
