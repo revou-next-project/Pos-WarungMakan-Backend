@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from models.base import Base
 from datetime import datetime
+from sqlalchemy.orm import relationship
+
 
 class User(Base):
     __tablename__ = "users"
@@ -13,7 +15,9 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now)
     updated_at = Column(DateTime(timezone=True), onupdate=datetime.now)
-
+    
+    employee_profile = relationship("Employee", back_populates="user", uselist=False)
+    cash_transactions = relationship("CashBalance", back_populates="user")
     def to_dict(self):
         return {
             'id': self.id,

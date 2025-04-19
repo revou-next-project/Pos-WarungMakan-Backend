@@ -1,6 +1,7 @@
 # seed.py
 from sqlalchemy.orm import Session
 from models import Product, InventoryItem
+from models.recipeItem_model import RecipeItem
 from .database import SessionLocal
 
 def seed_database():
@@ -110,6 +111,29 @@ def seed_database():
         db.add_all(sample_inventory)
         db.commit()
         print(f"Added {len(sample_inventory)} sample inventory items.")
+        
+    recipe_count = db.query(RecipeItem).count() 
+    if recipe_count == 0:
+        rice = db.query(InventoryItem).filter_by(name="Beras").first()
+        chicken = db.query(InventoryItem).filter_by(name="Ayam Fillet").first()
+        oil = db.query(InventoryItem).filter_by(name="Minyak Goreng").first()
+        fish_ball = db.query(InventoryItem).filter_by(name="Fish Ball").first()
+        sugar = db.query(InventoryItem).filter_by(name="Gula").first()
+
+        ricebox = db.query(Product).filter_by(name="Rice Box Chicken").first()
+        satay = db.query(Product).filter_by(name="Fishball Satay").first()
+        tea = db.query(Product).filter_by(name="Iced Tea").first()
+
+        recipes = [
+            RecipeItem(product_id=ricebox.id, inventory_item_id=rice.id, quantity_needed=0.2),  # 200g rice
+            RecipeItem(product_id=ricebox.id, inventory_item_id=chicken.id, quantity_needed=0.15),  # 150g chicken
+            RecipeItem(product_id=ricebox.id, inventory_item_id=oil.id, quantity_needed=0.05),  # 50ml oil
+            RecipeItem(product_id=satay.id, inventory_item_id=fish_ball.id, quantity_needed=0.1),  # 100g fish ball
+            RecipeItem(product_id=tea.id, inventory_item_id=sugar.id, quantity_needed=0.01),  # 10g sugar
+        ]
+        db.add_all(recipes)
+        db.commit()
+        print(f"✅ Added {len(recipes)} recipe items.")
 
     db.close()
 

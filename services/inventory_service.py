@@ -1,6 +1,6 @@
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
-from app import db
+from fastapi_sqlalchemy import db
 from models.InventoryItem_model import InventoryItem
 from schemas.inventory_schema import (
     InventorySchema,
