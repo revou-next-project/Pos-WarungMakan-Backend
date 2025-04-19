@@ -6,3 +6,4 @@ from .product_model import Product
 from .OrderItem_model import OrderItem
 from .order_model import Order
 from .user_model import User
+from .recipeItem_model import RecipeItem
