@@ -1,8 +1,13 @@
+from datetime import datetime
+from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi_sqlalchemy import db
 from models.InventoryItem_model import InventoryItem
+from models.cashBalance_model import CashBalance, TransactionType
+from models.expense_model import Expense
 from schemas.inventory_schema import (
+    AddStockSchema,
     InventorySchema,
     UpdateInventorySchema
     
@@ -35,42 +40,117 @@ async def create_inventory(inventory_data: InventorySchema):
         inventory = InventoryItem(
             name=inventory_data.name,
             current_stock=inventory_data.current_stock,
-            min_threshold=inventory_data.min_threshold,
             unit=inventory_data.unit,
-            category=inventory_data.category
+            min_threshold=inventory_data.min_threshold,
+            category=inventory_data.category,
         )
         db.session.add(inventory)
+        db.session.flush()
+
+        if inventory_data.current_stock > 0 and inventory_data.price_per_unit:
+            total_cost = inventory_data.current_stock * inventory_data.price_per_unit
+
+            db.session.add(Expense(
+                amount=total_cost,
+                category="ingredient",
+                description=f"Initial stock of {inventory.name}",
+                date=datetime.now(),
+                reference_order_id=None
+            ))
+
+            db.session.add(CashBalance(
+                transaction_type=TransactionType.EXPENSE,
+                amount=total_cost,
+                reference_id=inventory.id,
+                recorded_by=inventory_data.recorded_by or 0
+            ))
+
         db.session.commit()
-        return JSONResponse(content=inventory.to_dict(), status_code=201)
-    except SQLAlchemyError as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
-    
+        return {"message": "Inventory item created"}
+    except Exception as e:
+        db.session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 async def update_inventory(inventory_id: int, inventory_data: UpdateInventorySchema):
     try:
         inventory = db.session.query(InventoryItem).filter_by(id=inventory_id).first()
-
         if not inventory:
-            return JSONResponse(content={"error": "Inventory not found"}, status_code=404)
-        
-        update_inventory = inventory_data.dict(exclude_unset=True)
-        for key, value in update_inventory.items():
+            raise HTTPException(status_code=404, detail="Inventory not found")
+
+        old_stock = inventory.current_stock
+
+        for key, value in inventory_data.dict(exclude_unset=True).items():
             setattr(inventory, key, value)
 
+        if (
+            inventory_data.current_stock
+            and inventory_data.current_stock > old_stock
+            and inventory_data.price_per_unit
+        ):
+            diff = inventory_data.current_stock - old_stock
+            total_cost = diff * inventory_data.price_per_unit
+
+            db.session.add(Expense(
+                amount=total_cost,
+                category="ingredient",
+                description=f"Stock refill for {inventory.name}",
+                date=datetime.now(),
+                reference_order_id=None
+            ))
+
+            db.session.add(CashBalance(
+                transaction_type=TransactionType.EXPENSE,
+                amount=total_cost,
+                reference_id=inventory.id,
+                recorded_by=inventory_data.recorded_by or 0
+            ))
+
         db.session.commit()
-        return JSONResponse(content=inventory.to_dict(), status_code=200)
-    except SQLAlchemyError as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+        return {"message": "Inventory updated"}
+    except Exception as e:
+        db.session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 async def delete_inventory(inventory_id: int):
     try:
         inventory = db.session.query(InventoryItem).filter_by(id=inventory_id).first()
-
         if not inventory:
-            return JSONResponse(content={"error": "Inventory not found"}, status_code=404)
-        
+            raise HTTPException(status_code=404, detail="Inventory not found")
+
         db.session.delete(inventory)
         db.session.commit()
-        return JSONResponse(content={"message": "Inventory deleted successfully"}, status_code=200)
-    except SQLAlchemyError as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+        return {"message": "Inventory deleted"}
+    except Exception as e:
+        db.session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    
+async def add_stock(inventory_id: int, data: AddStockSchema, employee_id: int):
+    inventory = db.session.query(InventoryItem).filter_by(id=inventory_id).first()
+    if not inventory:
+        raise HTTPException(404, "Inventory item not found")
+    
+    total_cost = data.quantity * data.price_per_unit
+    inventory.current_stock += data.quantity
+    inventory.last_updated = datetime.now()
+
+    # Create expense record
+    db.session.add(Expense(
+        amount=total_cost,
+        category="ingredient",
+        description=data.description,
+        date=datetime.now()
+    ))
+
+    # Deduct cash
+    db.session.add(CashBalance(
+        transaction_type=TransactionType.EXPENSE,
+        amount=total_cost,
+        reference_id=inventory.id,
+        recorded_by=employee_id
+    ))
+
+    db.session.commit()
+    return {"message": "Stock added", "new_stock": inventory.current_stock}

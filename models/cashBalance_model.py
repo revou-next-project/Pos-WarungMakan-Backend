@@ -21,7 +21,7 @@ class CashBalance(Base):
     transaction_date = Column(DateTime(timezone=True), default=func.now())
     transaction_type = Column(Enum(TransactionType), nullable=False)
     amount = Column(Float, nullable=False)
-    reference_id = Column(Integer, nullable=True)  # Can reference order_id, expense_id, etc.
+    reference_id = Column(Integer, nullable=True)  # Can reference order_id, expense_id, '' , etc.
     notes = Column(Text, nullable=True)
     recorded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     

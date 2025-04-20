@@ -2,7 +2,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_sqlalchemy import db
 from schemas.order_schema import CreateOrderSchema, PayOrderSchema, UpdateOrderSchema
-from services.order_service import cancel_order, create_order, list_orders, pay_order, update_order
+from services.order_service import cancel_order, create_order, get_order_by_id, list_orders, list_unpaid_orders, pay_order, update_order
 from services.jwt_utils import get_current_user
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
@@ -55,7 +55,6 @@ def update_order_controller(
 
 @router.get("")
 def list_orders_controller(
-    status: str = None,
     payment_status: str = None,
     order_type: str = None,
     start_date: datetime = Query(None),
@@ -68,7 +67,6 @@ def list_orders_controller(
         raise HTTPException(status_code=403, detail="Access denied")
 
     return list_orders(
-        status=status,
         payment_status=payment_status,
         order_type=order_type,
         start_date=start_date,
@@ -76,3 +74,17 @@ def list_orders_controller(
         page=page,
         limit=limit
     )
+    
+@router.get("/orders/unpaid", tags=["Orders"])
+def get_unpaid_orders(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["admin", "cashier"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return list_unpaid_orders()
+
+@router.get("/{order_id}")
+def get_order_controller(order_id: int, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["admin", "cashier"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return get_order_by_id(order_id)
