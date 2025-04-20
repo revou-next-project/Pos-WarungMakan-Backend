@@ -10,7 +10,6 @@ class OrderItemCreateSchema(BaseModel):
 
 class CreateOrderSchema(BaseModel):
     order_type: str  # Dine In, GoFood, etc.
-    status: str = "waiting"  # waiting, cooking, etc.
     payment_status: str = "unpaid"  # unpaid or paid
     payment_method: Optional[str] = None
     total_amount: float
@@ -29,7 +28,6 @@ class UpdateOrderItemSchema(BaseModel):
 
 class UpdateOrderSchema(BaseModel):
     order_type: Optional[str] = None
-    status: Optional[str] = None
     total_amount: Optional[float] = None
     items: Optional[List[UpdateOrderItemSchema]] = None
 

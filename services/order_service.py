@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from sqlalchemy.orm import joinedload
 from fastapi_sqlalchemy import db
 from sqlalchemy import and_, func
 from models.InventoryItem_model import InventoryItem
@@ -19,7 +20,6 @@ def create_order(order_data: CreateOrderSchema):
         order = Order(
             order_number=order_number,
             order_type=order_data.order_type,
-            status=order_data.status or "waiting",
             payment_status=order_data.payment_status,
             payment_method=order_data.payment_method,
             total_amount=order_data.total_amount,
@@ -45,13 +45,7 @@ def create_order(order_data: CreateOrderSchema):
                 reference_id=order.id,
                 recorded_by=order_data.created_by
             ))
-            db.session.add(Expense(
-                amount=order.total_amount,
-                category="sale",
-                description=f"Direct sale on creation for order #{order.order_number}",
-                reference_order_id=order.id,
-                date=order.paid_at
-            ))
+
 
         db.session.commit()
         return {"message": "Order created", "order_id": order.id}
@@ -68,8 +62,6 @@ def pay_order(order_id: int, data: PayOrderSchema, employee_id: int):
             raise HTTPException(status_code=404, detail="Order not found")
         if order.payment_status == "paid":
             raise HTTPException(status_code=409, detail="Order already paid")
-        if order.status == "canceled":
-            raise HTTPException(status_code=400, detail="Cannot pay a canceled order")
 
         order.payment_status = "paid"
         order.payment_method = data.payment_method
@@ -80,14 +72,6 @@ def pay_order(order_id: int, data: PayOrderSchema, employee_id: int):
             amount=order.total_amount,
             reference_id=order.id,
             recorded_by=employee_id
-        ))
-
-        db.session.add(Expense(
-            amount=order.total_amount,
-            category="sale",
-            description=f"Payment received for order #{order.order_number}",
-            reference_order_id=order.id,
-            date=order.paid_at
         ))
 
         for item in order.items:
@@ -115,10 +99,7 @@ def cancel_order(order_id: int):
     if order.payment_status == "paid":
         raise HTTPException(400, "Cannot cancel a paid order")
 
-    if order.status in ["completed", "cooking", "canceled"]:
-        raise HTTPException(400, f"Cannot cancel an order with status {order.status}")
-
-    order.status = "canceled"
+    order.payment_status = "canceled"
     db.session.commit()
     return {"message": "Order canceled"}
 
@@ -154,7 +135,6 @@ def update_order(order_id: int, data: UpdateOrderSchema):
     return {"message": "Order updated"}
 
 def list_orders(
-    status=None,
     payment_status=None,
     order_type=None,
     start_date=None,
@@ -166,8 +146,6 @@ def list_orders(
         query = db.session.query(Order)
 
         # Filtering
-        if status:
-            query = query.filter(Order.status == status)
         if payment_status:
             query = query.filter(Order.payment_status == payment_status)
         if order_type:
@@ -197,12 +175,57 @@ def generate_order_number(order_type: str):
     today_str = datetime.now().strftime("%Y%m%d")
     today_date = datetime.now().date()
     prefix = f"ORD-{order_type.upper().replace(' ', '')}"
-
     count_today = db.session.query(func.count(Order.id)).filter(
         func.date(Order.created_at) == today_date,
         Order.order_type == order_type
     ).scalar()
 
     return f"{prefix}-{today_str}-{count_today + 1:04d}"
+
+
+def list_unpaid_orders():
+    try:
+        orders = db.session.query(Order).filter(
+            Order.payment_status != "paid",
+            Order.status != "canceled"
+        ).order_by(Order.timestamp.desc()).all()
+
+        return [order.to_dict() for order in orders]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+def get_order_by_id(order_id: int):
+    order = (
+        db.session.query(Order)
+        .options(joinedload(Order.items).joinedload(OrderItem.product))
+        .filter_by(id=order_id)
+        .first()
+    )
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    return {
+        "id": order.id,
+        "order_number": order.order_number,
+        "order_type": order.order_type,
+        "total_amount": order.total_amount,
+        "payment_status": order.payment_status,
+        "payment_method": order.payment_method,
+        "paid_at": order.paid_at.isoformat() if order.paid_at else None,
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "items": [
+            {
+                "id": item.id,
+                "product_id": item.product_id,
+                "product_name": item.product.name if item.product else None,
+                "quantity": item.quantity,
+                "price": item.price,
+                "note": item.note
+            }
+            for item in order.items
+        ]
+    }
+
 
 

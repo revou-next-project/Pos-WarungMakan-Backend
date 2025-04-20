@@ -4,7 +4,10 @@ from controllers import (
     product_controller,
     inventory_controller,
     orders_controller,
-    recipe_controller
+    recipe_controller,
+    expenses_controller,
+    employees_controller,
+    cashbalance_controller
 )
 
 router = APIRouter()
@@ -15,3 +18,6 @@ router.include_router(product_controller.router)
 router.include_router(inventory_controller.router)
 router.include_router(orders_controller.router)
 router.include_router(recipe_controller.router)
+router.include_router(expenses_controller.router)
+router.include_router(employees_controller.router)
+router.include_router(cashbalance_controller.router)

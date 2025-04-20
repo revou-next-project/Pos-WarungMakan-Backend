@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from passlib.hash import bcrypt
+from models.employee_model import Employee
 from models.user_model import User
 from services.jwt_utils import create_access_token
 from fastapi_sqlalchemy import db
@@ -30,5 +31,20 @@ def create_user(data):
         role=data.role
     )
     db.session.add(user)
+    db.session.flush()  # get user.id before commit
+
+    # Automatically create Employee profile
+    employee = Employee(
+        user_id=user.id,
+        name=data.username.capitalize(),  # or let frontend edit later
+        role=data.role
+    )
+    db.session.add(employee)
+
     db.session.commit()
-    return {"message": "User created", "user_id": user.id}
+
+    return {
+        "message": "User & Employee created",
+        "user_id": user.id,
+        "employee_id": employee.id
+    }
