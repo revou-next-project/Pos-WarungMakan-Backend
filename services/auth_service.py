@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from datetime import datetime
 from passlib.hash import bcrypt
 from models.employee_model import Employee
 from models.user_model import User
@@ -10,6 +11,10 @@ def login(username: str, password: str):
     user = db.session.query(User).filter_by(username=username).first()
     if not user or not bcrypt.verify(password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # ✅ Update last_login timestamp
+    user.last_login = datetime.utcnow()
+    db.session.commit()
 
     token = create_access_token({
         "sub": str(user.id),
