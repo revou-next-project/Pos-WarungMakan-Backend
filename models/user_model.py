@@ -26,6 +26,7 @@ class User(Base):
             'email': self.email,
             'role': self.role,
             'is_active': self.is_active,
+            'last_login': self.last_login.isoformat() if self.last_login else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
