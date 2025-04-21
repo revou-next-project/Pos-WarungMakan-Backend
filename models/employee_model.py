@@ -7,7 +7,7 @@ class Employee(Base):
     __tablename__ = "employees"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, unique=True)
+    user_id = Column(Integer, ForeignKey("users.id",ondelete="CASCADE"), nullable=True, unique=True)
     name = Column(String(100), nullable=False)
     role = Column(String(50), nullable=False)
     hourly_rate = Column(Float, nullable=True)

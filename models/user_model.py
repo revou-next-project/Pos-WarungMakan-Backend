@@ -17,8 +17,8 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.now)
     updated_at = Column(DateTime(timezone=True), onupdate=datetime.now)
     
-    employee_profile = relationship("Employee", back_populates="user", uselist=False)
-    cash_transactions = relationship("CashBalance", back_populates="user")
+    employee_profile = relationship("Employee", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    cash_transactions = relationship("CashBalance", back_populates="user", cascade="all, delete-orphan")
     def to_dict(self):
         return {
             'id': self.id,
@@ -26,6 +26,7 @@ class User(Base):
             'email': self.email,
             'role': self.role,
             'is_active': self.is_active,
+            'last_login': self.last_login.isoformat() if self.last_login else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
