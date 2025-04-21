@@ -35,7 +35,7 @@ async def create_product_controller(
 ):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only admins can add products")
-    return await create_product(product_data)
+    return await create_product(product_data, current_user)
 
 
 @router.put("/products/{product_id}", tags=["Products"])
@@ -46,7 +46,7 @@ async def update_product_controller(
 ):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only admins can update products")
-    return await update_product(product_id, product_data)
+    return await update_product(product_id, product_data, current_user)
 
 
 @router.delete("/products/{product_id}", tags=["Products"])
@@ -56,4 +56,4 @@ async def delete_product_controller(
 ):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only admins can delete products")
-    return await delete_product(product_id)
+    return await delete_product(product_id, current_user)
