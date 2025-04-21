@@ -9,16 +9,16 @@ from schemas.user_schema import (
     UserUpdateSchema
 )
 
-router = APIRouter(prefix="/users", tags=["Users"])
+router = APIRouter()
 
 
-@router.get("/", tags=["Users"])
+@router.get("/users", tags=["Users"])
 async def get_all_users_controller(current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only admins can view users")
     return await get_all_users()
 
-@router.put("/{user_id}", tags=["Users"])
+@router.put("/users/{user_id}", tags=["Users"])
 async def update_user_controller(
     user_id: int,
     user_data: UserUpdateSchema,
@@ -29,7 +29,7 @@ async def update_user_controller(
     return await update_user(user_id, user_data)
 
 
-@router.delete("/{user_id}", tags=["Users"])
+@router.delete("/users/{user_id}", tags=["Users"])
 async def delete_user_controller(
     user_id: int,
     current_user: dict = Depends(get_current_user)
