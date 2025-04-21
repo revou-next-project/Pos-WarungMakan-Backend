@@ -23,7 +23,7 @@ class CashBalance(Base):
     amount = Column(Float, nullable=False)
     reference_id = Column(Integer, nullable=True)  # Can reference order_id, expense_id, '' , etc.
     notes = Column(Text, nullable=True)
-    recorded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    recorded_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     
     # Relationship with the user who recorded it
     user = relationship("User", back_populates="cash_transactions")

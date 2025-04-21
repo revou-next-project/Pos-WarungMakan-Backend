@@ -17,8 +17,8 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.now)
     updated_at = Column(DateTime(timezone=True), onupdate=datetime.now)
     
-    employee_profile = relationship("Employee", back_populates="user", uselist=False)
-    cash_transactions = relationship("CashBalance", back_populates="user")
+    employee_profile = relationship("Employee", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    cash_transactions = relationship("CashBalance", back_populates="user", cascade="all, delete-orphan")
     def to_dict(self):
         return {
             'id': self.id,
