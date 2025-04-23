@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import joinedload
 from fastapi_sqlalchemy import db
@@ -8,28 +9,116 @@ from models.order_model import Order
 from models.OrderItem_model import OrderItem
 from models.cashBalance_model import CashBalance, TransactionType
 from models.recipeItem_model import RecipeItem
-from schemas.order_schema import CreateOrderSchema, PayOrderSchema, UpdateOrderSchema
+from schemas.order_schema import CreateOrderSchema, OrderWrapperSchema, PayOrderSchema, UpdateOrderSchema
 from datetime import datetime
 
-def create_order(order_data: CreateOrderSchema):
+# def create_order(order_data: CreateOrderSchema, order_id: Optional[int] = None):
+#     try:
+#         if not order_data.items:
+#             raise HTTPException(status_code=400, detail="Order must contain at least one item")
+
+#         normalized_type = (order_data.order_type or "").strip().upper()
+#         if normalized_type not in ALLOWED_ORDER_TYPES:
+#             normalized_type = "TEMP"
+
+#         order = None
+
+#         if order_id:
+#             order = db.session.query(Order).filter_by(id=order_id).first()
+#             if not order:
+#                 raise HTTPException(status_code=404, detail="Order not found")
+
+#             db.session.query(OrderItem).filter_by(order_id=order.id).delete()
+#             order.total_amount = order_data.total_amount
+#             order.payment_method = order_data.payment_method
+#             order.payment_status = order_data.payment_status
+#             order.paid_at = datetime.now() if order_data.payment_status == "paid" else None
+#             order.updated_at = datetime.now()
+
+#         else:
+#             order_number = generate_order_number(normalized_type)
+#             order = Order(
+#                 order_number=order_number,
+#                 order_type=normalized_type,
+#                 payment_status=order_data.payment_status,
+#                 payment_method=order_data.payment_method,
+#                 total_amount=order_data.total_amount,
+#                 created_by=order_data.created_by,
+#                 paid_at=datetime.now() if order_data.payment_status == "paid" else None
+#             )
+#             db.session.add(order)
+#             db.session.flush()
+
+#         for item in order_data.items:
+#             db.session.add(OrderItem(
+#                 order_id=order.id,
+#                 product_id=item.product_id,
+#                 quantity=item.quantity,
+#                 price=item.price,
+#                 note=item.note
+#             ))
+
+#         if order_data.payment_status == "paid" and order.payment_status != "paid":
+#             db.session.add(CashBalance(
+#                 transaction_type=TransactionType.SALE,
+#                 amount=order.total_amount,
+#                 reference_id=order.id,
+#                 recorded_by=order_data.created_by
+#             ))
+#             order.payment_status = "paid"
+#             order.paid_at = datetime.now()
+
+#         db.session.commit()
+#         return {"message": "Order created", "order_id": order.id}
+
+#     except Exception as e:
+#         db.session.rollback()
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+def save_order(wrapper: OrderWrapperSchema, employee_id: int):
     try:
-        if not order_data.items:
+        data = wrapper.order
+        order_id = wrapper.order_id
+        action = (wrapper.action or "").lower()
+
+        if not data.items:
             raise HTTPException(status_code=400, detail="Order must contain at least one item")
 
-        order_number = generate_order_number(order_data.order_type)
-        order = Order(
-            order_number=order_number,
-            order_type=order_data.order_type,
-            payment_status=order_data.payment_status,
-            payment_method=order_data.payment_method,
-            total_amount=order_data.total_amount,
-            created_by=order_data.created_by,
-            paid_at=datetime.now() if order_data.payment_status == "paid" else None
-        )
-        db.session.add(order)
-        db.session.flush()
+        normalized_type = (data.order_type or "").strip().upper()
+        if normalized_type not in ALLOWED_ORDER_TYPES:
+            normalized_type = "TEMP"
 
-        for item in order_data.items:
+        order = None
+
+        if order_id:
+            order = db.session.query(Order).filter_by(id=order_id).first()
+            if not order:
+                raise HTTPException(status_code=404, detail="Order not found")
+
+            db.session.query(OrderItem).filter_by(order_id=order.id).delete()
+            order.total_amount = data.total_amount
+            order.payment_method = data.payment_method
+            order.payment_status = data.payment_status
+            order.paid_at = datetime.now() if data.payment_status == "paid" else None
+            order.updated_at = datetime.now()
+        else:
+            order_number = generate_order_number(normalized_type)
+            order = Order(
+                order_number=order_number,
+                order_type=normalized_type,
+                payment_status=data.payment_status,
+                payment_method=data.payment_method,
+                total_amount=data.total_amount,
+                created_by=data.created_by or employee_id,
+                paid_at=datetime.now() if data.payment_status == "paid" else None
+            )
+            db.session.add(order)
+            db.session.flush()
+
+        # Add items
+        for item in data.items:
             db.session.add(OrderItem(
                 order_id=order.id,
                 product_id=item.product_id,
@@ -38,34 +127,112 @@ def create_order(order_data: CreateOrderSchema):
                 note=item.note
             ))
 
-        if order_data.payment_status == "paid":
+        # Optional pay inline
+        if action == "pay":
+            if order.payment_status == "paid":
+                raise HTTPException(409, "Order already paid")
+
             db.session.add(CashBalance(
                 transaction_type=TransactionType.SALE,
                 amount=order.total_amount,
                 reference_id=order.id,
-                recorded_by=order_data.created_by
+                recorded_by=employee_id
             ))
+            order.payment_status = "paid"
+            order.paid_at = datetime.now()
+            order.updated_at = datetime.now()
 
+            # Deduct stock
+            for item in order.items:
+                recipe_items = db.session.query(RecipeItem).filter_by(product_id=item.product_id).all()
+                for recipe in recipe_items:
+                    inventory_item = db.session.query(InventoryItem).filter_by(id=recipe.inventory_item_id).first()
+                    if inventory_item:
+                        deduction = recipe.quantity_needed * item.quantity
+                        if inventory_item.current_stock < deduction:
+                            raise HTTPException(400, f"Not enough stock for {inventory_item.name}")
+                        inventory_item.current_stock -= deduction
+                        db.session.add(inventory_item)
 
         db.session.commit()
-        return {"message": "Order created", "order_id": order.id}
+        return {
+            "message": f"Order {'created' if not order_id else 'updated'} successfully",
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "paid": order.payment_status == "paid"
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-    
+
+
+# def update_order(order_id: int, data: UpdateOrderSchema):
+#     order = db.session.query(Order).filter_by(id=order_id).first()
+#     if not order:
+#         raise HTTPException(404, "Order not found")
+
+#     if order.payment_status == "paid":
+#         raise HTTPException(400, "Cannot edit a paid order")
+
+#     if order.status in ["completed", "canceled"]:
+#         raise HTTPException(400, f"Cannot edit order with status '{order.status}'")
+
+#     update_data = data.dict(exclude_unset=True)
+#     ALLOWED_ORDER_TYPES = ["DINE IN", "GOJEK", "GRAB", "SHOPEE", "OTHER"]
+
+#     if "order_type" in update_data:
+#         new_order_type = update_data["order_type"].strip().upper()
+
+#         if new_order_type not in ALLOWED_ORDER_TYPES:
+#             raise HTTPException(400, f"Invalid order_type: {new_order_type}")
+
+#         old_order_type = (order.order_type or "").strip().upper()
+#         if new_order_type != old_order_type:
+#             parts = order.order_number.split("-")
+#             if len(parts) == 4 and parts[0] == "ORD":
+#                 parts[1] = new_order_type.replace(" ", "")
+#                 order.order_number = "-".join(parts)
+
+#         order.order_type = new_order_type
+
+#     for key, value in update_data.items():
+#         if key not in ["order_type", "order_number", "items"]:
+#             setattr(order, key, value)
+
+#     if data.items:
+#         db.session.query(OrderItem).filter_by(order_id=order.id).delete()
+#         for item in data.items:
+#             db.session.add(OrderItem(
+#                 order_id=order.id,
+#                 product_id=item.product_id,
+#                 quantity=item.quantity,
+#                 price=item.price,
+#                 note=item.note
+#             ))
+
+#     order.updated_at = datetime.now()
+
+#     db.session.commit()
+#     return {"message": "Order updated", "order_id": order.id, "order_number": order.order_number}
+
 
 def pay_order(order_id: int, data: PayOrderSchema, employee_id: int):
     try:
         order = db.session.query(Order).filter_by(id=order_id).first()
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
+
         if order.payment_status == "paid":
             raise HTTPException(status_code=409, detail="Order already paid")
 
         order.payment_status = "paid"
         order.payment_method = data.payment_method
         order.paid_at = datetime.now()
+        order.updated_at = datetime.now()
 
         db.session.add(CashBalance(
             transaction_type=TransactionType.SALE,
@@ -81,58 +248,46 @@ def pay_order(order_id: int, data: PayOrderSchema, employee_id: int):
                 if inventory_item:
                     deduction = recipe.quantity_needed * item.quantity
                     if inventory_item.current_stock < deduction:
-                        raise HTTPException(400, f"Not enough stock for {inventory_item.name}")
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Not enough stock for {inventory_item.name}"
+                        )
                     inventory_item.current_stock -= deduction
                     db.session.add(inventory_item)
 
         db.session.commit()
         return {"message": "Order paid successfully", "order_id": order.id}
+
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    
-def cancel_order(order_id: int):
-    order = db.session.query(Order).filter_by(id=order_id).first()
-    if not order:
-        raise HTTPException(404, "Order not found")
 
-    if order.payment_status == "paid":
-        raise HTTPException(400, "Cannot cancel a paid order")
+def cancel_order(order_id: int, employee_id: Optional[int] = None):
+    try:
+        order = db.session.query(Order).filter_by(id=order_id).first()
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
 
-    order.payment_status = "canceled"
-    db.session.commit()
-    return {"message": "Order canceled"}
+        if order.payment_status == "paid":
+            raise HTTPException(status_code=400, detail="Cannot cancel a paid order")
 
-def update_order(order_id: int, data: UpdateOrderSchema):
-    order = db.session.query(Order).filter_by(id=order_id).first()
-    if not order:
-        raise HTTPException(404, "Order not found")
+        if order.status == "canceled":
+            raise HTTPException(status_code=400, detail="Order is already canceled")
 
-    if order.payment_status == "paid":
-        raise HTTPException(400, "Cannot edit a paid order")
-    
-    if order.status in ["completed", "canceled"]:
-        raise HTTPException(400, f"Cannot edit order with status {order.status}")
 
-    update_data = data.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        if key not in ["items", "order_number"]:
-            setattr(order, key, value)
+        order.payment_status = "canceled"
+        order.status = "canceled"
+        order.updated_at = datetime.now()
 
-   
-    if data.items:
-        db.session.query(OrderItem).filter_by(order_id=order.id).delete()
-        for item in data.items:
-            db.session.add(OrderItem(
-                order_id=order.id,
-                product_id=item.product_id,
-                quantity=item.quantity,
-                price=item.price,
-                note=item.note
-            ))
+        db.session.commit()
+        return {"message": "Order canceled", "order_id": order.id}
 
-    db.session.commit()
-    return {"message": "Order updated"}
+    except Exception as e:
+        db.session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 def list_orders(
     payment_status=None,
@@ -171,6 +326,8 @@ def list_orders(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+ALLOWED_ORDER_TYPES = ["DINE IN", "GOJEK", "GRAB", "SHOPEE", "OTHER"]
+
 def generate_order_number(order_type: str):
     today_str = datetime.now().strftime("%Y%m%d")
     today_date = datetime.now().date()
@@ -179,7 +336,6 @@ def generate_order_number(order_type: str):
         func.date(Order.created_at) == today_date,
         Order.order_type == order_type
     ).scalar()
-
     return f"{prefix}-{today_str}-{count_today + 1:04d}"
 
 
@@ -193,6 +349,7 @@ def list_unpaid_orders():
         return [order.to_dict() for order in orders]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
     
 def get_order_by_id(order_id: int):
     order = (
@@ -226,6 +383,6 @@ def get_order_by_id(order_id: int):
             for item in order.items
         ]
     }
-
+    
 
 

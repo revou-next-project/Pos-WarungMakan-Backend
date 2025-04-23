@@ -33,7 +33,7 @@ async def get_inventory_controller(
         raise HTTPException(status_code=403, detail="Access denied")
     return await get_inventory_byID(inventory_id)
 
-
+@router.post("")
 async def create_inventory_controller(
     inventory_data: InventorySchema,
     current_user: dict = Depends(get_current_user)
