@@ -10,10 +10,11 @@ class Product(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     name = Column(String(255), nullable=False)
-    price = Column(Numeric(16, 2), nullable=False)
+    price = Column(Numeric(16, 2), nullable=True, default=0.00)
     category = Column(String(50), nullable=False)
-    unit = Column(String(50), nullable=False)
-    is_package = Column(Boolean, nullable=False)
+    description = Column(String(255), nullable=True)
+    unit = Column(String(50), nullable=True)
+    is_package = Column(Boolean, nullable=True)
     image = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now)
     updated_at = Column(DateTime(timezone=True), onupdate=datetime.now)
@@ -27,6 +28,7 @@ class Product(Base):
             'name': self.name,
             'price': float(self.price) if self.price is not None else None,  
             'category': self.category,
+            'description': self.description,
             'unit': self.unit,
             'image': self.image,
             'is_package': self.is_package,
