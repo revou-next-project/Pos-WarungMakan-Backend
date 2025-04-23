@@ -2,7 +2,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_sqlalchemy import db
 from schemas.order_schema import CreateOrderSchema, OrderWrapperSchema, PayOrderSchema, UpdateOrderSchema
-from services.order_service import cancel_order, create_order, get_order_by_id, list_orders, list_unpaid_orders, pay_order, save_order, update_order
+from services.order_service import cancel_order, get_order_by_id, list_orders, list_unpaid_orders, save_order
 from services.jwt_utils import get_current_user
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
