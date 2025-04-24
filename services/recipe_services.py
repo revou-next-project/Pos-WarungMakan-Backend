@@ -187,59 +187,67 @@ async def create_recipe(payload: RecipeCreateSchema):
 #     return JSONResponse(content=recipe.to_dict(), status_code=200)
 async def update_recipe(product_id: int, data: RecipeUpdateSchema):
     try:
-        # All operations in one atomic transaction
         with db.session.begin():
-            # 1) Load the product
             product = db.session.query(Product).filter_by(id=product_id).first()
             if not product:
                 raise HTTPException(status_code=404, detail="Product not found")
 
-            # 2) Update only the fields provided
+            # 1) Update product fields
             update_fields = data.dict(exclude_unset=True, exclude={"ingredients"})
             for key, value in update_fields.items():
                 setattr(product, key, value)
 
-            # 3) Handle ingredients if present
-            if data.ingredients:
-                for ingredient in data.ingredients:
-                    inv = db.session.query(InventoryItem).filter_by(name=ingredient.name).first()
+            # 2) Handle ingredients
+            if data.ingredients is not None:
+                # Load existing RecipeItems
+                existing = db.session.query(RecipeItem).filter_by(product_id=product.id).all()
+                # Track which inventory_item_ids we see in the payload
+                new_inv_ids = set()
+
+                for ing in data.ingredients:
+                    inv = db.session.query(InventoryItem).filter_by(name=ing.name).first()
                     if not inv:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Inventory item '{ingredient.name}' not found"
+                        raise HTTPException(status_code=400,
+                            detail=f"Inventory item '{ing.name}' not found"
                         )
+                    new_inv_ids.add(inv.id)
 
-                    # find existing RecipeItem
-                    ri = db.session.query(RecipeItem).filter_by(
-                        product_id=product.id,
-                        inventory_item_id=inv.id
-                    ).first()
-
+                    ri = (
+                        db.session.query(RecipeItem)
+                        .filter_by(product_id=product.id, inventory_item_id=inv.id)
+                        .first()
+                    )
                     if ri:
-                        ri.quantity_needed = ingredient.quantity
+                        ri.quantity_needed = ing.quantity
                     else:
                         db.session.add(RecipeItem(
                             product_id=product.id,
                             inventory_item_id=inv.id,
-                            quantity_needed=ingredient.quantity,
+                            quantity_needed=ing.quantity
                         ))
 
-        # At this point the transaction is committed
+                # 3) Delete any RecipeItem not in new_inv_ids
+                for ri in existing:
+                    if ri.inventory_item_id not in new_inv_ids:
+                        db.session.delete(ri)
 
-        # 4) Re-fetch the ingredients to build the response
-        ingredients = []
-        for item in (
-            db.session.query(RecipeItem)
-            .join(InventoryItem, RecipeItem.inventory_item_id == InventoryItem.id)
-            .filter(RecipeItem.product_id == product.id)
-            .all()
-        ):
-            ingredients.append({
+        # Transaction committed here
+
+        # 4) Build response
+        ingredients = [
+            {
                 "id": item.inventory_item_id,
                 "name": item.inventory_item.name,
                 "quantity": item.quantity_needed,
-                "unit": item.inventory_item.unit,
-            })
+                "unit": item.inventory_item.unit
+            }
+            for item in (
+                db.session.query(RecipeItem)
+                .join(InventoryItem, RecipeItem.inventory_item_id == InventoryItem.id)
+                .filter(RecipeItem.product_id == product.id)
+                .all()
+            )
+        ]
 
         return JSONResponse(
             status_code=200,
@@ -253,16 +261,13 @@ async def update_recipe(product_id: int, data: RecipeUpdateSchema):
         )
 
     except HTTPException:
-        # Re-raise HTTPException (404, 400, etc.)
         raise
-
     except SQLAlchemyError as e:
-        # Any SQLAlchemy error will have already rolled back
-        raise HTTPException(status_code=500, detail=f"Database error occurred: {str(e)}")
-
+        db.session.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error occurred: {e}")
     except Exception as e:
-        # Fallback for any other error
-        raise HTTPException(status_code=400, detail=f"Failed to update recipe: {str(e)}")
+        db.session.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to update recipe: {e}")
 
 
 async def delete_recipe(product_id: int):
