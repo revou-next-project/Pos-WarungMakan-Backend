@@ -14,7 +14,7 @@ def create_expense_controller(
 ):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only admin can add expense")
-    return create_expense(data)
+    return create_expense(data, user_id=current_user["id"])
 
 @router.get("")
 def get_expense_list(current_user: dict = Depends(get_current_user)):
@@ -32,7 +32,7 @@ def update_expense_controller(
 ):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only admin can update expense")
-    return update_expense(expense_id, data)
+    return update_expense(expense_id, data, user_id=current_user["id"])
 
 @router.delete("/{expense_id}")
 def delete_expense_controller(expense_id: int, current_user: dict = Depends(get_current_user)):
