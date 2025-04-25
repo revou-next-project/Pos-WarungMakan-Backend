@@ -17,7 +17,6 @@ def create_expense(data: CreateExpenseSchema, user_id: int):
             amount=data.amount,
             category=data.category,
             description=data.description,
-            reference_order_id=data.reference_order_id,
             date=data.date or datetime.now()
         )
         db.session.add(expense)
