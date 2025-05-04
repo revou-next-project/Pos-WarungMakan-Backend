@@ -8,6 +8,7 @@ from models.expense_model import Expense
 from models.order_model import Order
 from models.OrderItem_model import OrderItem
 from models.cashBalance_model import CashBalance, TransactionType
+from models.product_model import Product
 from models.recipeItem_model import RecipeItem
 from schemas.order_schema import CreateOrderSchema, OrderWrapperSchema, PayOrderSchema, UpdateOrderSchema
 from datetime import datetime
@@ -350,6 +351,35 @@ def list_unpaid_orders():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+def get_favorite_products(category=None, start_date=None, end_date=None):
+    query = db.session.query(
+        Product.name.label("product_name"),
+        Product.category,
+        func.sum(OrderItem.quantity).label("total_quantity"),
+        func.sum(OrderItem.price * OrderItem.quantity).label("total_paid")
+    ).join(OrderItem, Product.id == OrderItem.product_id) \
+     .join(Order, Order.id == OrderItem.order_id) \
+     .filter(Order.payment_status == "paid")
+
+    if category:
+        query = query.filter(Product.category == category)
+    if start_date and end_date:
+        query = query.filter(Order.paid_at.between(start_date, end_date))
+
+    query = query.group_by(Product.id).order_by(func.sum(OrderItem.price * OrderItem.quantity).desc())
+
+    result = query.all()
+
+    return [
+        {
+            "product_name": row.product_name,
+            "category": row.category,
+            "total_sales": int(row.total_quantity)
+        }
+        for row in result
+    ]
+   
+    
     
 def get_order_by_id(order_id: int):
     order = (
@@ -383,6 +413,10 @@ def get_order_by_id(order_id: int):
             for item in order.items
         ]
     }
+    
+    
+    
+
     
 
 

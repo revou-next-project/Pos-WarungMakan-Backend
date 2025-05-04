@@ -7,15 +7,6 @@ from services.jwt_utils import get_current_user
 
 router = APIRouter(prefix="/expenses", tags=["Expenses"])
 
-@router.post("")
-def create_expense_controller(
-    data: CreateExpenseSchema,
-    current_user: dict = Depends(get_current_user)
-):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can add expense")
-    return create_expense(data, user_id=current_user["id"])
-
 @router.get("")
 def get_expense_list(current_user: dict = Depends(get_current_user)):
     return get_all_expenses()

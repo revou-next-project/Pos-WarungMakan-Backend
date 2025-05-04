@@ -1,8 +1,9 @@
 from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_sqlalchemy import db
 from schemas.order_schema import CreateOrderSchema, OrderWrapperSchema, PayOrderSchema, UpdateOrderSchema
-from services.order_service import cancel_order, get_order_by_id, list_orders, list_unpaid_orders, pay_order, save_order
+from services.order_service import cancel_order, get_favorite_products, get_order_by_id, list_orders, list_unpaid_orders, pay_order, save_order
 from services.jwt_utils import get_current_user
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
@@ -75,6 +76,20 @@ def list_orders_controller(
         limit=limit
     )
     
+    
+@router.get("/favorites")
+def get_favorite_products_controller(
+    category: Optional[str] = Query(None),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can access this data")
+    
+    return get_favorite_products(category, start_date, end_date)
+
+
 @router.get("/orders/unpaid", tags=["Orders"])
 def get_unpaid_orders(current_user: dict = Depends(get_current_user)):
     if current_user["role"] not in ["admin", "cashier"]:
@@ -88,3 +103,5 @@ def get_order_controller(order_id: int, current_user: dict = Depends(get_current
         raise HTTPException(status_code=403, detail="Access denied")
 
     return get_order_by_id(order_id)
+
+
