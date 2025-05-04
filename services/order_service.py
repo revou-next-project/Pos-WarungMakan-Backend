@@ -379,6 +379,62 @@ def get_favorite_products(category=None, start_date=None, end_date=None):
         for row in result
     ]
    
+def get_sales_by_price_range(start_date=None, end_date=None):
+    from collections import defaultdict
+
+    # Define price ranges (min, max)
+    ranges = [
+        ("< 10K", 0, 10000),
+        ("10K - 25K", 10000, 25000),
+        ("25K - 50K", 25000, 50000),
+        ("50K - 100K", 50000, 100000),
+        ("> 100K", 100000, float("inf")),
+    ]
+
+    range_result = defaultdict(lambda: {"items_sold": 0, "products": []})
+
+    query = (
+        db.session.query(Product.price, func.sum(OrderItem.quantity).label("qty"))
+        .join(OrderItem, Product.id == OrderItem.product_id)
+        .join(Order, Order.id == OrderItem.order_id)
+        .filter(Order.payment_status == "paid")
+        .group_by(Product.id)
+    )
+
+    if start_date and end_date:
+        query = query.filter(Order.paid_at.between(start_date, end_date))
+
+    results = query.all()
+
+    total_sold = sum(row.qty for row in results)
+
+    for row in results:
+        price = float(row.price)
+        qty = int(row.qty)
+
+        for label, min_price, max_price in ranges:
+            if min_price <= price < max_price:
+                range_result[label]["items_sold"] += qty
+                range_result[label]["products"].append({"price": price, "quantity": qty})
+                break
+
+    response = []
+    for label, data in range_result.items():
+        sold = data["items_sold"]
+        percent = (sold / total_sold * 100) if total_sold > 0 else 0
+        response.append({
+            "range": label,
+            "items_sold": sold,
+            "percentage": round(percent, 1),
+            "products": data["products"],
+        })
+
+    response.sort(key=lambda x: x["items_sold"], reverse=True)
+    return {
+        "best_range": response[0]["range"] if response else None,
+        "total_sold": total_sold,
+        "ranges": response
+    }
     
     
 def get_order_by_id(order_id: int):
