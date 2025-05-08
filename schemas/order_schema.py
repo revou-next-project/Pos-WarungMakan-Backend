@@ -2,7 +2,7 @@ from pydantic import BaseModel, validator
 from typing import List, Optional
 from datetime import datetime
 
-ALLOWED_ORDER_TYPES = ["DINE IN", "GOJEK", "GRAB", "SHOPEE", "OTHER"]
+ALLOWED_ORDER_TYPES = ["DINE-IN", "GOJEK", "GRAB", "SHOPEE", "OTHER"]
 
 
 class OrderItemCreateSchema(BaseModel):
