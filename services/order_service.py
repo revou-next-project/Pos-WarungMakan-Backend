@@ -279,7 +279,6 @@ def cancel_order(order_id: int, employee_id: Optional[int] = None):
 
 
         order.payment_status = "canceled"
-        order.status = "canceled"
         order.updated_at = datetime.now()
 
         db.session.commit()
@@ -344,7 +343,7 @@ def list_unpaid_orders():
     try:
         orders = db.session.query(Order).filter(
             Order.payment_status != "paid",
-            Order.status != "canceled"
+            Order.payment_status != "canceled"
         ).order_by(Order.timestamp.desc()).all()
 
         return [order.to_dict() for order in orders]
