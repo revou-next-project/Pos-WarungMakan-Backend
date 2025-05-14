@@ -79,3 +79,5 @@ async def delete_product(product_id: int, current_user: dict):
 
     except SQLAlchemyError as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+    
+    

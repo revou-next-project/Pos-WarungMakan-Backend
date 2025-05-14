@@ -18,7 +18,9 @@ class Product(Base):
     image = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now)
     updated_at = Column(DateTime(timezone=True), onupdate=datetime.now)
-
+    discount = Column(Float, nullable=False)  
+    status = Column(String(20), nullable=False)
+    
     # Relationship with OrderItem
     order_items = relationship("OrderItem", back_populates="product")
 
@@ -31,6 +33,8 @@ class Product(Base):
             'description': self.description,
             'unit': self.unit,
             'image': self.image,
+            'status': self.status,
+            'discount': self.discount,
             'is_package': self.is_package,
             'created_at': self.created_at.isoformat() if self.created_at else None, 
             'updated_at': self.updated_at.isoformat() if self.updated_at else None  

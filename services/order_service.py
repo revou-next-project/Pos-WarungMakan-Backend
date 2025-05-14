@@ -274,7 +274,7 @@ def cancel_order(order_id: int, employee_id: Optional[int] = None):
         if order.payment_status == "paid":
             raise HTTPException(status_code=400, detail="Cannot cancel a paid order")
 
-        if order.status == "canceled":
+        if order.payment_status == "canceled":
             raise HTTPException(status_code=400, detail="Order is already canceled")
 
 

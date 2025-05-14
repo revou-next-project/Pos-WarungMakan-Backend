@@ -4,11 +4,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import dev
 from routes import router as api_router
 from databases.seed import seed_database
+from scheduler.runner import start_scheduler
 from fastapi.openapi.utils import get_openapi
 
 # Lifespan for seeding the DB
 async def lifespan(app: FastAPI):
     seed_database()
+    start_scheduler() 
     yield
 
 def create_app():

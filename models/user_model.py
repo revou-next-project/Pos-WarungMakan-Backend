@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Float, Integer, String, DateTime, Boolean
 from models.base import Base
 from datetime import datetime
 from sqlalchemy.orm import relationship
@@ -16,6 +16,7 @@ class User(Base):
     last_login = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now)
     updated_at = Column(DateTime(timezone=True), onupdate=datetime.now)
+    discount = Column(Float, nullable=False)  
     
     employee_profile = relationship("Employee", back_populates="user", uselist=False, cascade="all, delete-orphan")
     cash_transactions = relationship("CashBalance", back_populates="user", cascade="all, delete-orphan")
