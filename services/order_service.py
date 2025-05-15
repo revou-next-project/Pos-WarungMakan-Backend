@@ -10,7 +10,7 @@ from models.OrderItem_model import OrderItem
 from models.cashBalance_model import CashBalance, TransactionType
 from models.product_model import Product
 from models.recipeItem_model import RecipeItem
-from schemas.order_schema import CreateOrderSchema, OrderWrapperSchema, PayOrderSchema, UpdateOrderSchema
+from schemas.order_schema import ALLOWED_ORDER_TYPES, CreateOrderSchema, OrderWrapperSchema, PayOrderSchema, UpdateOrderSchema
 from datetime import datetime
 
 # def create_order(order_data: CreateOrderSchema, order_id: Optional[int] = None):
@@ -327,8 +327,6 @@ def list_orders(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-ALLOWED_ORDER_TYPES = ["DINE IN", "GOJEK", "GRAB", "SHOPEE", "OTHER"]
-
 def generate_order_number(order_type: str):
     today_str = datetime.now().strftime("%Y%m%d")
     today_date = datetime.now().date()
