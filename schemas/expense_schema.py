@@ -1,11 +1,22 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from enum import Enum
 
+
+class Category(str, Enum):
+    INGREDIENT   = "ingredient"
+    ELECTRICITY  = "electricity"
+    UTILITIES    = "utilities"
+    RENT         = "rent"
+    SALARY       = "salary"
+    EQUIPMENT    = "equipment"
+    MARKETING    = "marketing"
+    OTHER        = "other"
 class CreateExpenseSchema(BaseModel):
     date: Optional[datetime] = None
     amount: float
-    category: str
+    category: Category
     description: Optional[str] = None
 
 class UpdateExpenseSchema(BaseModel):
