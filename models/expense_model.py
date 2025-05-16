@@ -32,6 +32,7 @@ class Expense(Base):
     def to_dict(self):
         return {
             'id': self.id,
+            'cash_log_id': self.cash_log_id,
             'date': self.date.isoformat() if self.date else None,
             'amount': self.amount,
             'type': "expense",

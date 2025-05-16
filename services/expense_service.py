@@ -63,17 +63,17 @@ def get_all_expenses(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-    expenses = (
-        db.session
-        .query(Expense)
-        .order_by(Expense.date.desc())
-        .all()
-    )
-    data = [expense.to_dict() for expense in expenses]
-    return {
-        "total": len(data),
-        "data": data
-    }
+    # expenses = (
+    #     db.session
+    #     .query(Expense)
+    #     .order_by(Expense.date.desc())
+    #     .all()
+    # )
+    # data = [expense.to_dict() for expense in expenses]
+    # return {
+    #     "total": len(data),
+    #     "data": data
+    # }
 
 
 def get_expense_by_id(expense_id: int):
