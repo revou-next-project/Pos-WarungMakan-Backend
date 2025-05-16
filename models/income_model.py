@@ -27,6 +27,7 @@ class Income(Base):
             "cash_log_id": self.cash_log_id,
             "date": self.date.isoformat() if self.date else None,
             "amount": self.amount,
+            "type": "income",
             "category": self.category,
             "descriptions": self.descriptions,
             "created_at": self.created_at.isoformat() if self.created_at else None,

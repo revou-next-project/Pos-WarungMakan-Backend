@@ -23,7 +23,7 @@ async def get_incomes_list(
     ),
     current_user: dict = Depends(get_current_user)
     ):
-    return get_all_incomes(start_date=start_date, end_date=end_date)
+    return await get_all_incomes(start_date=start_date, end_date=end_date)
 
 @router.post("")
 async def create_income_controller(
@@ -32,4 +32,4 @@ async def create_income_controller(
 ):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only admin can create an income")
-    return create_income(income_data, user_id=current_user["id"])
+    return await create_income(income_data, user_id=current_user["id"])
