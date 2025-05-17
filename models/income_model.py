@@ -5,7 +5,7 @@ from models.base import Base
 from enum import Enum as PyEnum
 
 class category(PyEnum):
-    OTHER_INCOME = "other_income"
+    OTHER_INCOME = "other income"
     INVESTMENT = "investment"
 
 class Income(Base):
