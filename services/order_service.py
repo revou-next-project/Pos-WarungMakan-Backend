@@ -98,7 +98,17 @@ def save_order(wrapper: OrderWrapperSchema, employee_id: int):
             if not order:
                 raise HTTPException(status_code=404, detail="Order not found")
 
+            old_type = order.order_type.strip().upper()
+            if normalized_type != old_type and old_type == "TEMP":
+                # Replace only the order type part of the number
+                parts = order.order_number.split("-")
+                if len(parts) == 4 and parts[0] == "ORD":
+                    parts[1] = normalized_type.replace(" ", "")
+                    order.order_number = "-".join(parts)
+
+            order.order_type = normalized_type
             db.session.query(OrderItem).filter_by(order_id=order.id).delete()
+
             order.total_amount = data.total_amount
             order.payment_method = data.payment_method
             order.payment_status = data.payment_status
@@ -128,10 +138,10 @@ def save_order(wrapper: OrderWrapperSchema, employee_id: int):
                 note=item.note
             ))
 
-        # Optional pay inline
+        # Optional inline pay
         if action == "pay":
             if order.payment_status == "paid":
-                raise HTTPException(409, "Order already paid")
+                raise HTTPException(status_code=409, detail="Order already paid")
 
             db.session.add(CashBalance(
                 transaction_type=TransactionType.SALE,
@@ -143,11 +153,16 @@ def save_order(wrapper: OrderWrapperSchema, employee_id: int):
             order.paid_at = datetime.now()
             order.updated_at = datetime.now()
 
-            # Deduct stock
-            for item in order.items:
+            # Deduct stock based on items just added
+            for item in data.items:
                 recipe_items = db.session.query(RecipeItem).filter_by(product_id=item.product_id).all()
                 for recipe in recipe_items:
-                    inventory_item = db.session.query(InventoryItem).filter_by(id=recipe.inventory_item_id).first()
+                    inventory_item = (
+                        db.session.query(InventoryItem)
+                        .with_for_update()
+                        .filter_by(id=recipe.inventory_item_id)
+                        .first()
+                    )
                     if inventory_item:
                         deduction = recipe.quantity_needed * item.quantity
                         if inventory_item.current_stock < deduction:
@@ -168,6 +183,7 @@ def save_order(wrapper: OrderWrapperSchema, employee_id: int):
     except Exception as e:
         db.session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 
@@ -341,7 +357,7 @@ def list_unpaid_orders():
     try:
         orders = db.session.query(Order).filter(
             Order.payment_status != "paid",
-            Order.status != "canceled"
+            Order.payment_status != "canceled"
         ).order_by(Order.timestamp.desc()).all()
 
         return [order.to_dict() for order in orders]
