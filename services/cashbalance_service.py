@@ -1,11 +1,13 @@
 from datetime import datetime
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from models.cashBalance_model import CashBalance, TransactionType
 from models.order_model import Order
 from models.OrderItem_model import OrderItem
 from models.product_model import Product
 from models.InventoryItem_model import InventoryItem
 from fastapi_sqlalchemy import db
+from fastapi import HTTPException
+from fastapi.responses import JSONResponse
 
 def get_cashflow_summary(period: str = "day", page: int = 1, limit: int = 10, start_date: str = None, end_date: str = None, transaction_type: str = None):
     now = datetime.now()
@@ -99,3 +101,39 @@ def get_cashflow_summary(period: str = "day", page: int = 1, limit: int = 10, st
         "page": page,
         "limit": limit
     }
+
+async def get_cashflow_incomes(
+        start_date: str,
+        end_date: str,
+        transaction_type: str
+):
+    try:
+        ttype = (transaction_type or "").strip().lower()
+        if ttype == "sale":
+            query = db.session.query(Order).filter(Order.payment_status == "paid")
+
+            if start_date and end_date:
+                query = query.filter(
+                    and_(Order.timestamp >= start_date, Order.timestamp < end_date)
+                )
+            total = query.count()
+            orders = query.order_by(Order.timestamp.desc()).all()
+            result = [
+            {
+                "id":             o.id,
+                "amount":         o.total_amount,
+                "payment_status": o.payment_status,
+                "type":           "income",          
+                "descriptions":   "Daily sales",     
+                "category":       "sales",
+                "created_at":     o.created_at.isoformat() if o.created_at else None,
+            }
+            for o in orders
+        ]
+            return JSONResponse(content={"data": result, "total": total}, status_code=200)
+        else:
+            return JSONResponse(content={
+                "message": "Transaction still not designed"
+            }, status_code=200)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -13,10 +13,10 @@ class TransactionType(PyEnum):
     EXPENSE = "expense"
     ADJUSTMENT = "adjustment"
     REFUND = "refund"
+    INCOME = "income"
 
 class CashBalance(Base):
     __tablename__ = "cash_balance"
-    
     id = Column(Integer, primary_key=True, index=True)
     transaction_date = Column(DateTime(timezone=True), default=func.now())
     transaction_type = Column(Enum(TransactionType), nullable=False)
@@ -27,6 +27,8 @@ class CashBalance(Base):
     
     # Relationship with the user who recorded it
     user = relationship("User", back_populates="cash_transactions")
+    expenses = relationship("Expense", back_populates="cash_log")
+    incomes = relationship("Income", back_populates="cash_log")
 
     def to_dict(self):
         return {

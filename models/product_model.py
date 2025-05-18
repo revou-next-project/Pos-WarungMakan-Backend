@@ -18,6 +18,7 @@ class Product(Base):
     image = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now)
     updated_at = Column(DateTime(timezone=True), onupdate=datetime.now)
+    
     discount = Column(Float, nullable=False)  
     status = Column(String(20), nullable=False)
     
