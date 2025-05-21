@@ -118,8 +118,6 @@ def get_order_controller(order_id: int, current_user: dict = Depends(get_current
 def time_based_report(start_date: date, end_date: date):
     if start_date > end_date:
         raise HTTPException(status_code=400, detail="start_date must be before end_date")
-    if start_date < datetime.now().date() - timedelta(days=30):
-        raise HTTPException(status_code=400, detail="start_date must be within the last 30 days")
     if end_date > datetime.now().date():
         raise HTTPException(status_code=400, detail="end_date must be today or earlier")
     
