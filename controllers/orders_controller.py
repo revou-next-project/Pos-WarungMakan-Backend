@@ -1,11 +1,11 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_sqlalchemy import db
 from schemas.order_schema import CreateOrderSchema, OrderWrapperSchema, PayOrderSchema, UpdateOrderSchema
 from services.order_service import cancel_order, get_favorite_products, get_order_by_id, get_sales_by_price_range, list_orders, list_unpaid_orders, pay_order, save_order
 from services.jwt_utils import get_current_user
-
+from services.analytics_service import time_based_analysis
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
 @router.post("")
@@ -53,6 +53,16 @@ def cancel_order_controller(
 #         raise HTTPException(status_code=403, detail="Access denied")
 
 #     return update_order(order_id, data)
+@router.get("/reports/time-based")
+def time_based_report(start_date: date, end_date: date):
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="start_date must be before end_date")
+    if start_date < datetime.now().date() - timedelta(days=30):
+        raise HTTPException(status_code=400, detail="start_date must be within the last 30 days")
+    if end_date > datetime.now().date():
+        raise HTTPException(status_code=400, detail="end_date must be today or earlier")
+    
+    return time_based_analysis(start_date, end_date)
 
 @router.get("")
 def list_orders_controller(

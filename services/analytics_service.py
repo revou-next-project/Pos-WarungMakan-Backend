@@ -1,3 +1,4 @@
+from datetime import date
 from sqlalchemy import extract, func
 from models.order_model import Order
 from models.OrderItem_model import OrderItem
@@ -50,3 +51,44 @@ def get_least_ordered_products(
         }
         for row in result
     ]
+    
+
+def time_based_analyis(start_date: date, end_date: date):
+    peak_hours = (
+        db.session.query(
+            extract("hour", Order.created_at).label("hour"),
+            func.count(Order.id).label("order_count")
+        )
+        .filter(Order.created_at.between(start_date, end_date))
+        .filter(Order.payment_status == "paid")
+        .group_by(extract("hour", Order.created_at))
+        .order_by(func.count(Order.id).desc())
+        .limit(3)
+        .all()
+    )
+    
+    busiest_days = (
+        db.session.query(
+            func.date(Order.created_at).label("day"),
+            func.count(Order.id).label("order_count")
+        )
+        .filter(Order.created_at >= start_date, Order.created_at <= end_date)
+        .filter(Order.payment_status == "paid")
+        .group_by("day")
+        .order_by(func.count(Order.id).desc())
+        .limit(3)
+        .all()
+    )
+    
+    return {
+        "peak_hours": [
+            {"hour": int(row.hour), "order_count": row.order_count}
+            for row in peak_hours
+        ],
+        "busiest_days": [
+            {"day": row.day.strftime("%A, %d %B %Y"), "order_count": row.order_count}
+            for row in busiest_days
+        ]
+    }
+
+
