@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import joinedload
 from fastapi_sqlalchemy import db
-from sqlalchemy import and_, func
+from sqlalchemy import and_, extract, func
 from models.InventoryItem_model import InventoryItem
 from models.expense_model import Expense
 from models.order_model import Order
@@ -11,7 +11,7 @@ from models.cashBalance_model import CashBalance, TransactionType
 from models.product_model import Product
 from models.recipeItem_model import RecipeItem
 from schemas.order_schema import ALLOWED_ORDER_TYPES, CreateOrderSchema, OrderWrapperSchema, PayOrderSchema, UpdateOrderSchema
-from datetime import datetime
+from datetime import date, datetime
 
 # def create_order(order_data: CreateOrderSchema, order_id: Optional[int] = None):
 #     try:
@@ -92,7 +92,17 @@ def save_order(wrapper: OrderWrapperSchema, employee_id: int):
             normalized_type = "TEMP"
 
         order = None
-
+        total_amount = 0
+        
+        for item in data.items:
+            if item.discount > 0:
+                item_price = (item.price - (item.price * item.discount / 100)) * item.quantity
+                total_amount += item_price
+            else:
+                item_price = item.price  * item.quantity
+                total_amount += item_price
+            data.total_amount = total_amount  
+            
         if order_id:
             order = db.session.query(Order).filter_by(id=order_id).first()
             if not order:
@@ -480,6 +490,44 @@ def get_order_by_id(order_id: int):
                 "note": item.note
             }
             for item in order.items
+        ]
+    }
+    
+def time_based_analyis(start_date: date, end_date: date):
+    peak_hours = (
+        db.session.query(
+            extract("hour", Order.created_at).label("hour"),
+            func.count(Order.id).label("order_count")
+        )
+        .filter(Order.created_at.between(start_date, end_date))
+        .filter(Order.payment_status == "paid")
+        .group_by(extract("hour", Order.created_at))
+        .order_by(func.count(Order.id).desc())
+        .limit(3)
+        .all()
+    )
+    
+    busiest_days = (
+        db.session.query(
+            func.date(Order.created_at).label("day"),
+            func.count(Order.id).label("order_count")
+        )
+        .filter(Order.created_at >= start_date, Order.created_at <= end_date)
+        .filter(Order.payment_status == "paid")
+        .group_by("day")
+        .order_by(func.count(Order.id).desc())
+        .limit(3)
+        .all()
+    )
+    
+    return {
+        "peak_hours": [
+            {"hour": int(row.hour), "order_count": row.order_count}
+            for row in peak_hours
+        ],
+        "busiest_days": [
+            {"day": row.day.strftime("%A, %d %B %Y"), "order_count": row.order_count}
+            for row in busiest_days
         ]
     }
     
