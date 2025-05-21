@@ -5,11 +5,14 @@ from config import dev
 from routes import router as api_router
 from databases.seed import seed_database
 from fastapi.openapi.utils import get_openapi
+from scheduler.runner import start_scheduler
 
 # Lifespan for seeding the DB
 async def lifespan(app: FastAPI):
     seed_database()
+    start_scheduler() 
     yield
+
 
 def create_app():
     config = dev.DevConfig()
