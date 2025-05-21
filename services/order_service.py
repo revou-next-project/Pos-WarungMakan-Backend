@@ -92,17 +92,6 @@ def save_order(wrapper: OrderWrapperSchema, employee_id: int):
             normalized_type = "TEMP"
 
         order = None
-        total_amount = 0
-        
-        for item in data.items:
-            if item.discount > 0:
-                item_price = (item.price - (item.price * item.discount / 100)) * item.quantity
-                total_amount += item_price
-            else:
-                item_price = item.price  * item.quantity
-                total_amount += item_price
-            data.total_amount = total_amount  
-            
         if order_id:
             order = db.session.query(Order).filter_by(id=order_id).first()
             if not order:
@@ -193,58 +182,6 @@ def save_order(wrapper: OrderWrapperSchema, employee_id: int):
     except Exception as e:
         db.session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-
-
-
-
-# def update_order(order_id: int, data: UpdateOrderSchema):
-#     order = db.session.query(Order).filter_by(id=order_id).first()
-#     if not order:
-#         raise HTTPException(404, "Order not found")
-
-#     if order.payment_status == "paid":
-#         raise HTTPException(400, "Cannot edit a paid order")
-
-#     if order.status in ["completed", "canceled"]:
-#         raise HTTPException(400, f"Cannot edit order with status '{order.status}'")
-
-#     update_data = data.dict(exclude_unset=True)
-#     ALLOWED_ORDER_TYPES = ["DINE IN", "GOJEK", "GRAB", "SHOPEE", "OTHER"]
-
-#     if "order_type" in update_data:
-#         new_order_type = update_data["order_type"].strip().upper()
-
-#         if new_order_type not in ALLOWED_ORDER_TYPES:
-#             raise HTTPException(400, f"Invalid order_type: {new_order_type}")
-
-#         old_order_type = (order.order_type or "").strip().upper()
-#         if new_order_type != old_order_type:
-#             parts = order.order_number.split("-")
-#             if len(parts) == 4 and parts[0] == "ORD":
-#                 parts[1] = new_order_type.replace(" ", "")
-#                 order.order_number = "-".join(parts)
-
-#         order.order_type = new_order_type
-
-#     for key, value in update_data.items():
-#         if key not in ["order_type", "order_number", "items"]:
-#             setattr(order, key, value)
-
-#     if data.items:
-#         db.session.query(OrderItem).filter_by(order_id=order.id).delete()
-#         for item in data.items:
-#             db.session.add(OrderItem(
-#                 order_id=order.id,
-#                 product_id=item.product_id,
-#                 quantity=item.quantity,
-#                 price=item.price,
-#                 note=item.note
-#             ))
-
-#     order.updated_at = datetime.now()
-
-#     db.session.commit()
-#     return {"message": "Order updated", "order_id": order.id, "order_number": order.order_number}
 
 
 def pay_order(order_id: int, data: PayOrderSchema, employee_id: int):
